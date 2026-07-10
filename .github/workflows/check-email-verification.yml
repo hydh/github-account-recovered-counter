@@ -1,0 +1,81 @@
+name: Check primary email verification
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"  # 毎日 12:17 JST 頃
+
+env:
+  # 通し番号の名簿を管理する中央リポジトリ(フォークしてもここは変えない)
+  CENTRAL_REPO: hydh/github-account-recovered-counter
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Query /user/emails and update badge + evidence log
+        env:
+          # user:email スコープ付きの classic PAT を Secrets に登録すること
+          GH_TOKEN: ${{ secrets.EMAIL_CHECK_PAT }}
+        run: |
+          set -euo pipefail
+
+          response=$(gh api user/emails)
+          login=$(gh api user --jq .login)
+
+          primary_verified=$(echo "$response" | jq '[.[] | select(.primary == true)][0].verified')
+          primary_domain=$(echo "$response" | jq -r '[.[] | select(.primary == true)][0].email | split("@")[1]')
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # メールアドレス本体は公開しない。ドメインと verified フラグのみ記録し、
+          # 生レスポンスはハッシュとして残す(後から同一性を示せる)。
+          response_hash=$(echo "$response" | shasum -a 256 | cut -d' ' -f1)
+
+          if [ "$primary_verified" = "true" ]; then
+            state="unrestricted"
+            message="OAuth login enabled (primary email verified)"
+            color="brightgreen"
+
+            # 中央リポジトリの名簿に自分がいれば通し番号をバッジに表示する
+            my_number=$(curl -fsSL "https://raw.githubusercontent.com/${CENTRAL_REPO}/main/registry.json" \
+              | jq -r --arg login "$login" '[.[] | select(.login == $login)][0].number // empty')
+            if [ -n "$my_number" ]; then
+              message="OAuth login enabled — recovered #${my_number}"
+            else
+              echo "::notice::回復済みですがまだ名簿に未登録です。通し番号を得るには以下から登録 Issue を作成してください:"
+              echo "::notice::https://github.com/${CENTRAL_REPO}/issues/new?template=recovery-registration.md&title=%5Brecovered%5D+${login}"
+            fi
+          else
+            state="restricted"
+            message="OAuth login restricted (primary email unverified)"
+            color="red"
+          fi
+
+          jq -n \
+            --arg message "$message" \
+            --arg color "$color" \
+            '{schemaVersion: 1, label: "GitHub 3rd-party login", message: $message, color: $color}' \
+            > badge.json
+
+          jq -cn \
+            --arg ts "$timestamp" \
+            --arg login "$login" \
+            --arg state "$state" \
+            --arg domain "$primary_domain" \
+            --argjson verified "$primary_verified" \
+            --arg hash "$response_hash" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{timestamp: $ts, login: $login, state: $state, primary_email_domain: $domain, primary_email_verified: $verified, api_response_sha256: $hash, workflow_run: $run_url}' \
+            >> evidence.ndjson
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add badge.json evidence.ndjson
+          git diff --cached --quiet && echo "No state change" && exit 0
+          git commit --allow-empty-message -m ''
+          git push

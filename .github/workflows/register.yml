@@ -1,0 +1,63 @@
+name: Register recovered account
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  register:
+    # 登録用 Issue のみ処理する
+    if: startsWith(github.event.issue.title, '[recovered]')
+    runs-on: ubuntu-latest
+    concurrency:
+      group: registry
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assign serial number and update counter
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 登録されるのは Issue 作者本人のログイン名。なりすましは不可。
+          CLAIMANT: ${{ github.event.issue.user.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          set -euo pipefail
+
+          existing=$(jq -r --arg login "$CLAIMANT" \
+            '[.[] | select(.login == $login)][0].number // empty' registry.json)
+          if [ -n "$existing" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body \
+              "@${CLAIMANT} さんはすでに **#${existing}** として登録済みです。"
+            gh issue close "$ISSUE_NUMBER" --reason "not planned"
+            exit 0
+          fi
+
+          number=$(( $(jq 'length' registry.json) + 1 ))
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          jq --arg login "$CLAIMANT" \
+             --argjson number "$number" \
+             --arg ts "$timestamp" \
+             --arg issue "$ISSUE_URL" \
+             '. + [{number: $number, login: $login, recovered_at: $ts, registration_issue: $issue}]' \
+             registry.json > registry.tmp && mv registry.tmp registry.json
+
+          jq -n --arg n "$number" \
+            '{schemaVersion: 1, label: "recovered accounts", message: $n, color: "brightgreen"}' \
+            > counter.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json counter.json
+          git commit --allow-empty-message -m ''
+          git push
+
+          gh issue comment "$ISSUE_NUMBER" --body \
+            "🎉 @${CLAIMANT} さんを回復アカウント **#${number}** として登録しました。バッジ用ワークフローの次回実行から通し番号が表示されます。"
+          gh issue close "$ISSUE_NUMBER" --reason "completed"
