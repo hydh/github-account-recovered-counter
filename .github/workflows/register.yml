@@ -19,22 +19,49 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Assign serial number and update counter
+      - name: Assign serial number and hand back a personalized badge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 登録されるのは Issue 作者本人のログイン名。なりすましは不可。
+          # 登録されるのは Issue 作者本人の検証済みログイン名のみ。
+          # タイトルや本文の自由入力は一切信頼しない(なりすまし不可)。
           CLAIMANT: ${{ github.event.issue.user.login }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
           set -euo pipefail
 
+          # 検証済みログインで固定したライブバッジ Markdown を組み立てる。
+          # ユーザーはこれを貼るだけ。改変の余地はない。
+          target=$(jq -rn --arg u "$CLAIMANT" '"https://github.com/"+$u | @uri')
+          label=$(jq -rn --arg u "$CLAIMANT" '"GitHub account @"+$u | @uri')
+          badge_url="https://img.shields.io/website?url=${target}&up_message=unrestricted&down_message=restricted&up_color=brightgreen&down_color=red&label=${label}"
+          badge_md="![GitHub account](${badge_url})"
+
+          # GitHub 側の生シグナルで「今まさに制限解除済み」であることを確認する。
+          # 制限(シャドウバン)中はプロフィールが未認証アクセスに 404 を返す。
+          http=$(curl -s -o /dev/null -w '%{http_code}' "https://github.com/${CLAIMANT}")
+          if [ "$http" != "200" ]; then
+            gh issue comment "$ISSUE_NUMBER" --body \
+              "⚠️ 現在 \`github.com/${CLAIMANT}\` が HTTP ${http} を返しています。制限が解除され、プロフィールが第三者から見える状態になってから登録してください。"
+            gh issue close "$ISSUE_NUMBER" --reason "not planned"
+            exit 0
+          fi
+
+          # すでに登録済みなら番号とバッジを返して終了(冪等)
           existing=$(jq -r --arg login "$CLAIMANT" \
             '[.[] | select(.login == $login)][0].number // empty' registry.json)
           if [ -n "$existing" ]; then
-            gh issue comment "$ISSUE_NUMBER" --body \
-              "@${CLAIMANT} さんはすでに **#${existing}** として登録済みです。"
-            gh issue close "$ISSUE_NUMBER" --reason "not planned"
+            {
+              echo "@${CLAIMANT} さんはすでに回復アカウント **#${existing}** として登録済みです。"
+              echo ""
+              echo "あなたのバッジ（検証済みログインで固定・改変不要）:"
+              echo ""
+              echo '```markdown'
+              echo "${badge_md}"
+              echo '```'
+            } > comment.md
+            gh issue comment "$ISSUE_NUMBER" --body-file comment.md
+            gh issue close "$ISSUE_NUMBER" --reason "completed"
             exit 0
           fi
 
@@ -75,6 +102,17 @@ jobs:
             sleep 5
           done
 
-          gh issue comment "$ISSUE_NUMBER" --body \
-            "🎉 @${CLAIMANT} さんを回復アカウント **#${number}** として登録しました。バッジ用ワークフローの次回実行から通し番号が表示されます。"
+          {
+            echo "🎉 @${CLAIMANT} さんを回復アカウント **#${number}** として登録しました。"
+            echo ""
+            echo "以下をあなたの README やブログに貼ってください（検証済みログインで固定・改変不要）:"
+            echo ""
+            echo '```markdown'
+            echo "${badge_md}"
+            echo '```'
+            echo ""
+            echo "このバッジは shields.io が \`github.com/${CLAIMANT}\` を直接見て判定するため、"
+            echo "自己申告なしでリアルタイムに状態を示します。制限が再発すれば自動で赤に戻ります。"
+          } > comment.md
+          gh issue comment "$ISSUE_NUMBER" --body-file comment.md
           gh issue close "$ISSUE_NUMBER" --reason "completed"

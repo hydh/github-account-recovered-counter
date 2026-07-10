@@ -1,20 +1,20 @@
 ---
 name: 回復アカウント登録 / Recovery registration
-about: メール認証によりサードパーティログイン制限から回復したことを登録し、通し番号を受け取ります
-title: "[recovered] あなたのログイン名"
+about: アカウント制限から回復したことを登録し、通し番号とバッジを受け取ります
+title: "[recovered]"
 labels: []
 assignees: []
 ---
 
 <!--
-タイトルの「あなたのログイン名」は自分の GitHub ログイン名に置き換えてください。
-登録されるのはこの Issue を作成したアカウント本人です(タイトルは表示用)。
+このまま「Create」を押すだけで登録できます。書き換えは不要です。
+
+登録されるのは、この Issue を作成したあなた本人の GitHub ログイン名です
+(タイトルや本文に何を書いても、そこは一切参照されません)。
+Bot が数十秒であなた専用のバッジ Markdown と通し番号をコメントし、
+自動でこの Issue をクローズします。
+
+任意: 制限中の証跡(evidence.ndjson や Actions ログの URL)があれば下に貼れます。
 -->
 
-## 証跡(任意)
-
-restricted → unrestricted の遷移が記録されたご自身のリポジトリの
-`evidence.ndjson` へのリンク、または Actions 実行ログの URL を貼ってください。
-
-- evidence:
-- workflow run:
+- evidence (任意):

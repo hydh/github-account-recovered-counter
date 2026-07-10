@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub 回復バッジ</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --fg: #e6edf3; --muted: #8b949e; --accent: #2f81f7;
+    --ok: #3fb950; --code-bg: #010409;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff; --card: #f6f8fa; --border: #d0d7de;
+      --fg: #1f2328; --muted: #59636e; --accent: #0969da;
+      --ok: #1a7f37; --code-bg: #f6f8fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.7; display: flex; justify-content: center;
+  }
+  main { width: 100%; max-width: 720px; }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
+  .lead { color: var(--muted); margin: 0 0 2rem; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  }
+  .step { color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .04em; }
+  .preview { margin: 1rem 0; min-height: 20px; }
+  a.btn {
+    display: inline-block; background: var(--ok); color: #fff; text-decoration: none;
+    padding: .8rem 1.4rem; border-radius: 8px; font-weight: 700; margin-top: .5rem; font-size: 1rem;
+  }
+  .hint { color: var(--muted); font-size: .85rem; margin: .5rem 0 0; }
+  code { background: var(--code-bg); padding: .1rem .3rem; border-radius: 4px; font-size: .85em; }
+  ol { margin: .5rem 0 0; padding-left: 1.2rem; }
+  ol li { margin-bottom: .35rem; }
+  footer { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 1rem; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>GitHub 回復バッジ</h1>
+  <p class="lead">
+    フリーメール等が原因のアカウント制限（サードパーティログイン拒否・シャドウバン）から
+    回復したことを、<strong>GitHub ログインで本人確認しながら</strong>証明するバッジ。
+    フォークもトークンも不要です。
+  </p>
+
+  <div class="card">
+    <p class="step">STEP 1 — 登録（GitHub ログインが必要）</p>
+    <h2>ボタンを押して Issue を送るだけ</h2>
+    <p class="hint">
+      Issue の作成には GitHub ログインが必須です。採番 Bot は、あなたが入力した文字ではなく
+      <strong>GitHub が検証した本人のログイン名</strong>だけを使って登録します。
+      だから他人になりすまして番号を取ることはできません。
+    </p>
+    <ol>
+      <li>下のボタンで登録 Issue を開く（ログイン状態で送信）</li>
+      <li>Bot が数十秒であなた専用のバッジ Markdown と通し番号をコメント</li>
+      <li>Bot は登録前に <code>github.com/あなた</code> が実際に見える状態か（＝本当に回復済みか）を確認します</li>
+    </ol>
+    <a class="btn" href="https://github.com/hydh/github-account-recovered-counter/issues/new?template=recovery-registration.md&title=%5Brecovered%5D">
+      GitHub で登録する →
+    </a>
+  </div>
+
+  <div class="card">
+    <p class="step">STEP 2 — 貼る</p>
+    <h2>Bot が返したバッジを README やブログへ</h2>
+    <p class="hint">
+      渡されるバッジは shields.io が <code>github.com/あなた</code> を直接見て判定します。
+      トークン不要・自己申告なしで、閲覧するたびにリアルタイム検証。制限が再発すれば
+      自動で赤 <code>restricted</code> に戻り、回復していれば緑 <code>unrestricted</code>。
+    </p>
+    <p class="hint">例（#1 の実物）:</p>
+    <div class="preview">
+      <img alt="example badge" src="https://img.shields.io/website?url=https%3A%2F%2Fgithub.com%2Fhydh&up_message=unrestricted&down_message=restricted&up_color=brightgreen&down_color=red&label=GitHub%20account%20%40hydh">
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="step">これまでの回復者数</p>
+    <div class="preview">
+      <img alt="recovered accounts" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hydh/github-account-recovered-counter/main/counter.json">
+    </div>
+    <p class="hint">名簿は <a href="https://github.com/hydh/github-account-recovered-counter/blob/main/registry.json">registry.json</a> で公開監査できます。</p>
+  </div>
+
+  <footer>
+    制限された日時・回復した日時のタイムスタンプ付き証跡ログが欲しい上級者は、
+    <a href="https://github.com/hydh/github-account-recovered-counter#オプション恒久的な証跡ログを残す上級者向け">
+    README のオプション手順</a>を参照してください。
+  </footer>
+</main>
+</body>
+</html>
