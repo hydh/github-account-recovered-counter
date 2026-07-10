@@ -16,28 +16,30 @@ primary_domain=$(echo "$response" | jq -r '[.[] | select(.primary == true)][0].e
 timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 response_hash=$(echo "$response" | shasum -a 256 | cut -d' ' -f1)
 
-# Actions が動かせるかも観測する(制限中は HTTP 422 "Actions has been disabled
-# for this user" が返る。これは GitHub 側の挙動であり自己申告ではない)
+# 制限状態の判定は workflow dispatch の可否で行う。制限中のアカウントは
+# HTTP 422 "Actions has been disabled for this user" が返る。これは GitHub 側の
+# 挙動であり自己申告ではない。メール認証状態は補助的な証跡として併記する。
 repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || echo "")
-dispatch_error=""
-if [ -n "$repo" ]; then
-  dispatch_error=$(gh workflow run "Check primary email verification" -R "$repo" 2>&1 >/dev/null || true)
-fi
+dispatch_error=$(gh workflow run "Check account restriction" -R "$repo" 2>&1 >/dev/null || true)
 
-if [ "$primary_verified" = "true" ]; then
+if echo "$dispatch_error" | grep -q "Actions has been disabled"; then
+  state="restricted"
+  message="restricted — Actions & OAuth disabled"
+  color="red"
+elif [ -z "$dispatch_error" ]; then
   state="unrestricted"
-  message="OAuth login enabled (primary email verified)"
+  message="unrestricted — Actions enabled"
   color="brightgreen"
 else
-  state="restricted"
-  message="OAuth login restricted (primary email unverified)"
-  color="red"
+  echo "dispatch probe failed for an unexpected reason:" >&2
+  echo "$dispatch_error" >&2
+  exit 1
 fi
 
 jq -n \
   --arg message "$message" \
   --arg color "$color" \
-  '{schemaVersion: 1, label: "GitHub 3rd-party login", message: $message, color: $color}' \
+  '{schemaVersion: 1, label: "GitHub account", message: $message, color: $color}' \
   > badge.json
 
 jq -cn \

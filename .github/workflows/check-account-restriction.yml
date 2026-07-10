@@ -1,4 +1,4 @@
-name: Check primary email verification
+name: Check account restriction
 
 on:
   workflow_dispatch:
@@ -18,12 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Query /user/emails and update badge + evidence log
+      - name: Record unrestricted state + email evidence
         env:
           # user:email スコープ付きの classic PAT を Secrets に登録すること
           GH_TOKEN: ${{ secrets.EMAIL_CHECK_PAT }}
         run: |
           set -euo pipefail
+
+          # このワークフローが実行できていること自体が「制限解除済み」の証明。
+          # 制限中のアカウントは Actions が無効化され、ここには到達できない。
+          state="unrestricted"
+          message="unrestricted — Actions enabled"
+          color="brightgreen"
 
           response=$(gh api user/emails)
           login=$(gh api user --jq .login)
@@ -36,30 +42,20 @@ jobs:
           # 生レスポンスはハッシュとして残す(後から同一性を示せる)。
           response_hash=$(echo "$response" | shasum -a 256 | cut -d' ' -f1)
 
-          if [ "$primary_verified" = "true" ]; then
-            state="unrestricted"
-            message="OAuth login enabled (primary email verified)"
-            color="brightgreen"
-
-            # 中央リポジトリの名簿に自分がいれば通し番号をバッジに表示する
-            my_number=$(curl -fsSL "https://raw.githubusercontent.com/${CENTRAL_REPO}/main/registry.json" \
-              | jq -r --arg login "$login" '[.[] | select(.login == $login)][0].number // empty')
-            if [ -n "$my_number" ]; then
-              message="OAuth login enabled — recovered #${my_number}"
-            else
-              echo "::notice::回復済みですがまだ名簿に未登録です。通し番号を得るには以下から登録 Issue を作成してください:"
-              echo "::notice::https://github.com/${CENTRAL_REPO}/issues/new?template=recovery-registration.md&title=%5Brecovered%5D+${login}"
-            fi
+          # 中央リポジトリの名簿に自分がいれば通し番号をバッジに表示する
+          my_number=$(curl -fsSL "https://raw.githubusercontent.com/${CENTRAL_REPO}/main/registry.json" \
+            | jq -r --arg login "$login" '[.[] | select(.login == $login)][0].number // empty')
+          if [ -n "$my_number" ]; then
+            message="unrestricted — recovered #${my_number}"
           else
-            state="restricted"
-            message="OAuth login restricted (primary email unverified)"
-            color="red"
+            echo "::notice::制限解除済みですがまだ名簿に未登録です。通し番号を得るには以下から登録 Issue を作成してください:"
+            echo "::notice::https://github.com/${CENTRAL_REPO}/issues/new?template=recovery-registration.md&title=%5Brecovered%5D+${login}"
           fi
 
           jq -n \
             --arg message "$message" \
             --arg color "$color" \
-            '{schemaVersion: 1, label: "GitHub 3rd-party login", message: $message, color: $color}' \
+            '{schemaVersion: 1, label: "GitHub account", message: $message, color: $color}' \
             > badge.json
 
           jq -cn \
@@ -70,7 +66,7 @@ jobs:
             --argjson verified "$primary_verified" \
             --arg hash "$response_hash" \
             --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            '{timestamp: $ts, login: $login, state: $state, primary_email_domain: $domain, primary_email_verified: $verified, api_response_sha256: $hash, workflow_run: $run_url}' \
+            '{timestamp: $ts, login: $login, state: $state, primary_email_domain: $domain, primary_email_verified: $verified, api_response_sha256: $hash, observer: "actions", workflow_run: $run_url}' \
             >> evidence.ndjson
 
           git config user.name "github-actions[bot]"
