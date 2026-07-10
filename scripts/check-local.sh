@@ -11,6 +11,10 @@ cd "$(dirname "$0")/.."
 response=$(gh api user/emails)
 login=$(gh api user --jq .login)
 
+# 誰でも検証可能なシグナル: 制限(シャドウバン)中はプロフィールが
+# 未認証アクセスに対して 404 を返す
+profile_public_http=$(curl -s -o /dev/null -w "%{http_code}" "https://github.com/${login}")
+
 primary_verified=$(echo "$response" | jq '[.[] | select(.primary == true)][0].verified')
 primary_domain=$(echo "$response" | jq -r '[.[] | select(.primary == true)][0].email | split("@")[1]')
 timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -50,7 +54,8 @@ jq -cn \
   --argjson verified "$primary_verified" \
   --arg hash "$response_hash" \
   --arg dispatch_error "$dispatch_error" \
-  '{timestamp: $ts, login: $login, state: $state, primary_email_domain: $domain, primary_email_verified: $verified, api_response_sha256: $hash, observer: "local", actions_dispatch_error: (if $dispatch_error == "" then null else $dispatch_error end)}' \
+  --arg profile_http "$profile_public_http" \
+  '{timestamp: $ts, login: $login, state: $state, primary_email_domain: $domain, primary_email_verified: $verified, api_response_sha256: $hash, observer: "local", profile_public_http: $profile_http, actions_dispatch_error: (if $dispatch_error == "" then null else $dispatch_error end)}' \
   >> evidence.ndjson
 
 git add badge.json evidence.ndjson
