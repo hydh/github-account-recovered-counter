@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "number": 1,
+    "login": "hydh",
+    "recovered_at": "2026-07-10T18:42:03Z",
+    "registration_issue": "https://github.com/hydh/github-account-recovered-counter/issues/1"
+  }
+]
