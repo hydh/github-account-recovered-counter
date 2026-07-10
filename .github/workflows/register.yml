@@ -38,25 +38,42 @@ jobs:
             exit 0
           fi
 
-          number=$(( $(jq 'length' registry.json) + 1 ))
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-          jq --arg login "$CLAIMANT" \
-             --argjson number "$number" \
-             --arg ts "$timestamp" \
-             --arg issue "$ISSUE_URL" \
-             '. + [{number: $number, login: $login, recovered_at: $ts, registration_issue: $issue}]' \
-             registry.json > registry.tmp && mv registry.tmp registry.json
-
-          jq -n --arg n "$number" \
-            '{schemaVersion: 1, label: "recovered accounts", message: $n, color: "brightgreen"}' \
-            > counter.json
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add registry.json counter.json
-          git commit --allow-empty-message -m ''
-          git push
+
+          # 観測ワークフローのコミットと push が競合しうるため、
+          # 常に最新の origin/main の上で採番し直してリトライする
+          number=""
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+
+            number=$(( $(jq 'length' registry.json) + 1 ))
+
+            jq --arg login "$CLAIMANT" \
+               --argjson number "$number" \
+               --arg ts "$timestamp" \
+               --arg issue "$ISSUE_URL" \
+               '. + [{number: $number, login: $login, recovered_at: $ts, registration_issue: $issue}]' \
+               registry.json > registry.tmp && mv registry.tmp registry.json
+
+            jq -n --arg n "$number" \
+              '{schemaVersion: 1, label: "recovered accounts", message: $n, color: "brightgreen"}' \
+              > counter.json
+
+            git add registry.json counter.json
+            git commit --allow-empty-message -m ''
+            if git push; then
+              break
+            fi
+            if [ "$attempt" = "3" ]; then
+              echo "::error::push failed after 3 attempts"
+              exit 1
+            fi
+            echo "push rejected, retrying (${attempt}/3)"
+            sleep 5
+          done
 
           gh issue comment "$ISSUE_NUMBER" --body \
             "🎉 @${CLAIMANT} さんを回復アカウント **#${number}** として登録しました。バッジ用ワークフローの次回実行から通し番号が表示されます。"
