@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "GitHub account",
-  "message": "restricted — Actions & OAuth disabled",
-  "color": "red"
+  "message": "unrestricted — Actions enabled",
+  "color": "brightgreen"
 }
