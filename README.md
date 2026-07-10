@@ -43,6 +43,27 @@ GitHub OAuth ログインが `unverified_user_email` エラーで拒否されま
 します。登録されるのは Issue を作った本人のアカウントなので、なりすましは
 できません。二重登録は自動で弾かれます。
 
+## 制限中は Actions 自体が動かない（重要）
+
+プライマリメールが未認証のアカウントは **GitHub Actions 自体が無効化される**
+（workflow dispatch が HTTP 422 `Actions has been disabled for this user.` で
+拒否される）ため、制限中の状態は Actions では観測できません。そこで:
+
+- **制限中**: [scripts/check-local.sh](scripts/check-local.sh) をローカルで実行して
+  証跡を記録します。このスクリプトは dispatch が 422 で拒否されることも
+  `evidence.ndjson` に記録します（GitHub 側が返すエラーであり、自己申告では
+  ありません）。
+- **解除後**: メール認証により Actions が有効化され、ワークフローが観測を
+  引き継ぎます。**このリポジトリで最初に Actions の実行が成功した日時**が
+  GitHub のサーバー記録として公開され、それ以前は Actions を動かせなかった
+  ことと合わせて、解除の時点を裏付けます。
+
+```sh
+# 制限中の観測(要 user:email スコープ)
+gh auth refresh -h github.com -s user:email
+./scripts/check-local.sh
+```
+
 ## 証明の仕組みと限界
 
 - ワークフローが `GET /user/emails` を叩き、プライマリメールの `verified`
