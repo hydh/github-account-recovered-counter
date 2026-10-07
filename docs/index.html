@@ -43,62 +43,163 @@
   ol li { margin-bottom: .35rem; }
   footer { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 1rem; }
   a { color: var(--accent); }
+  .lang-toggle {
+    position: fixed; top: 1rem; right: 1rem; display: flex;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    background: var(--card); z-index: 10;
+  }
+  .lang-toggle button {
+    background: none; border: 0; color: var(--muted); cursor: pointer;
+    padding: .35rem .75rem; font-size: .8rem; font-weight: 600; font-family: inherit;
+  }
+  .lang-toggle button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  [data-lang] { display: none; }
+  html[lang="ja"] [data-lang="ja"], html[lang="en"] [data-lang="en"] { display: revert; }
 </style>
+<script>
+  // 表示言語の決定: ?lang= > 保存済みの選択 > ブラウザの言語設定。
+  // IP 判定は外部 API に閲覧者の IP を送る必要があり、国≠言語でもあるため使わない。
+  (function () {
+    var param = new URLSearchParams(location.search).get("lang");
+    var saved = null;
+    try { saved = localStorage.getItem("lang"); } catch (e) {}
+    var langs = navigator.languages || [navigator.language || "ja"];
+    var detected = /^ja\b/i.test(langs[0] || "") ? "ja" : "en";
+    var lang = (param === "ja" || param === "en") ? param
+             : (saved === "ja" || saved === "en") ? saved
+             : detected;
+    document.documentElement.lang = lang;
+  })();
+</script>
 </head>
 <body>
+<nav class="lang-toggle" aria-label="Language">
+  <button type="button" data-set-lang="ja">日本語</button>
+  <button type="button" data-set-lang="en">English</button>
+</nav>
 <main>
-  <h1>GitHub 回復バッジ</h1>
-  <p class="lead">
+  <h1>
+    <span data-lang="ja">GitHub 回復バッジ</span>
+    <span data-lang="en">GitHub Recovery Badge</span>
+  </h1>
+  <p class="lead" data-lang="ja">
     フリーメール等が原因のアカウント制限（サードパーティログイン拒否・シャドウバン）から
     回復したことを、<strong>GitHub ログインで本人確認しながら</strong>証明するバッジ。
     フォークもトークンも不要です。
   </p>
+  <p class="lead" data-lang="en">
+    A badge that proves your account has recovered from a GitHub account restriction
+    (third-party login denied / shadowban, e.g. caused by a free-mail address),
+    <strong>with identity verified by your GitHub login</strong>.
+    No fork, no token required.
+  </p>
 
   <div class="card">
-    <p class="step">STEP 1 — 登録（GitHub ログインが必要）</p>
-    <h2>ボタンを押して Issue を送るだけ</h2>
-    <p class="hint">
+    <p class="step">
+      <span data-lang="ja">STEP 1 — 登録（GitHub ログインが必要）</span>
+      <span data-lang="en">STEP 1 — Register (GitHub login required)</span>
+    </p>
+    <h2>
+      <span data-lang="ja">ボタンを押して Issue を送るだけ</span>
+      <span data-lang="en">Just press the button and submit an Issue</span>
+    </h2>
+    <p class="hint" data-lang="ja">
       Issue の作成には GitHub ログインが必須です。採番 Bot は、あなたが入力した文字ではなく
       <strong>GitHub が検証した本人のログイン名</strong>だけを使って登録します。
       だから他人になりすまして番号を取ることはできません。
     </p>
-    <ol>
+    <p class="hint" data-lang="en">
+      Opening an Issue requires being logged in to GitHub. The numbering bot ignores anything
+      you type and registers <strong>only the login name verified by GitHub</strong>,
+      so nobody can claim a number on someone else's behalf.
+    </p>
+    <ol data-lang="ja">
       <li>下のボタンで登録 Issue を開く（ログイン状態で送信）</li>
       <li>Bot が数十秒であなた専用のバッジ Markdown と通し番号をコメント</li>
       <li>Bot は登録前に <code>github.com/あなた</code> が実際に見える状態か（＝本当に回復済みか）を確認します</li>
     </ol>
+    <ol data-lang="en">
+      <li>Open the registration Issue with the button below (submit while logged in)</li>
+      <li>Within seconds, the bot comments with your personal badge Markdown and serial number</li>
+      <li>Before registering, the bot checks that <code>github.com/you</code> is publicly visible (i.e. you have really recovered)</li>
+    </ol>
     <a class="btn" href="https://github.com/hydh/github-account-recovered-counter/issues/new?template=recovery-registration.md&title=%5Brecovered%5D">
-      GitHub で登録する →
+      <span data-lang="ja">GitHub で登録する →</span>
+      <span data-lang="en">Register with GitHub →</span>
     </a>
   </div>
 
   <div class="card">
-    <p class="step">STEP 2 — 貼る</p>
-    <h2>Bot が返したバッジを README やブログへ</h2>
-    <p class="hint">
+    <p class="step">
+      <span data-lang="ja">STEP 2 — 貼る</span>
+      <span data-lang="en">STEP 2 — Paste</span>
+    </p>
+    <h2>
+      <span data-lang="ja">Bot が返したバッジを README やブログへ</span>
+      <span data-lang="en">Put the badge from the bot in your README or blog</span>
+    </h2>
+    <p class="hint" data-lang="ja">
       渡されるバッジは shields.io が <code>github.com/あなた</code> を直接見て判定します。
       トークン不要・自己申告なしで、閲覧するたびにリアルタイム検証。制限が再発すれば
       自動で赤 <code>restricted</code> に戻り、回復していれば緑 <code>unrestricted</code>。
     </p>
-    <p class="hint">例（#1 の実物）:</p>
+    <p class="hint" data-lang="en">
+      shields.io checks <code>github.com/you</code> directly to render the badge —
+      no token, no self-reporting, verified live on every view. Green
+      <code>unrestricted</code> while recovered; it turns red <code>restricted</code>
+      automatically if the restriction comes back.
+    </p>
+    <p class="hint">
+      <span data-lang="ja">例（#1 の実物）:</span>
+      <span data-lang="en">Example (the real #1):</span>
+    </p>
     <div class="preview">
       <img alt="example badge" src="https://img.shields.io/website?url=https%3A%2F%2Fgithub.com%2Fhydh&up_message=unrestricted&down_message=restricted&up_color=brightgreen&down_color=red&label=GitHub%20account%20%40hydh">
     </div>
   </div>
 
   <div class="card">
-    <p class="step">これまでの回復者数</p>
+    <p class="step">
+      <span data-lang="ja">これまでの回復者数</span>
+      <span data-lang="en">Recovered accounts so far</span>
+    </p>
     <div class="preview">
       <img alt="recovered accounts" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hydh/github-account-recovered-counter/main/counter.json">
     </div>
-    <p class="hint">名簿は <a href="https://github.com/hydh/github-account-recovered-counter/blob/main/registry.json">registry.json</a> で公開監査できます。</p>
+    <p class="hint" data-lang="ja">名簿は <a href="https://github.com/hydh/github-account-recovered-counter/blob/main/registry.json">registry.json</a> で公開監査できます。</p>
+    <p class="hint" data-lang="en">The registry is publicly auditable in <a href="https://github.com/hydh/github-account-recovered-counter/blob/main/registry.json">registry.json</a>.</p>
   </div>
 
-  <footer>
+  <footer data-lang="ja">
     制限された日時・回復した日時のタイムスタンプ付き証跡ログが欲しい上級者は、
     <a href="https://github.com/hydh/github-account-recovered-counter#オプション恒久的な証跡ログを残す上級者向け">
     README のオプション手順</a>を参照してください。
   </footer>
+  <footer data-lang="en">
+    Advanced users who want a timestamped evidence log of when the restriction started and ended can follow the
+    <a href="https://github.com/hydh/github-account-recovered-counter#オプション恒久的な証跡ログを残す上級者向け">optional steps in the README</a>.
+  </footer>
 </main>
+<script>
+  var TITLES = { ja: "GitHub 回復バッジ", en: "GitHub Recovery Badge" };
+  var buttons = document.querySelectorAll("[data-set-lang]");
+
+  function apply(lang) {
+    document.documentElement.lang = lang;
+    document.title = TITLES[lang];
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.setLang === lang));
+    });
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      try { localStorage.setItem("lang", b.dataset.setLang); } catch (e) {}
+      apply(b.dataset.setLang);
+    });
+  });
+
+  apply(document.documentElement.lang);
+</script>
 </body>
 </html>
