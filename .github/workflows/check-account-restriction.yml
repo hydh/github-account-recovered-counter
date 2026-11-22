@@ -16,7 +16,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Record unrestricted state + email evidence
         env:
@@ -31,16 +31,23 @@ jobs:
           message="unrestricted — Actions enabled"
           color="brightgreen"
 
-          response=$(gh api user/emails)
-          login=$(gh api user --jq .login)
-
-          primary_verified=$(echo "$response" | jq '[.[] | select(.primary == true)][0].verified')
-          primary_domain=$(echo "$response" | jq -r '[.[] | select(.primary == true)][0].email | split("@")[1]')
+          login="${{ github.repository_owner }}"
           timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-          # メールアドレス本体は公開しない。ドメインと verified フラグのみ記録し、
-          # 生レスポンスはハッシュとして残す(後から同一性を示せる)。
-          response_hash=$(echo "$response" | shasum -a 256 | cut -d' ' -f1)
+          # メール認証状態は補助的な証跡。PAT が未登録・期限切れでも観測自体は
+          # 止めず、警告を出してメール情報なし(null)で記録を続ける。
+          primary_verified="null"
+          primary_domain=""
+          response_hash=""
+          if [ -n "${GH_TOKEN}" ] && response=$(gh api user/emails 2>/dev/null); then
+            primary_verified=$(echo "$response" | jq '[.[] | select(.primary == true)][0].verified')
+            primary_domain=$(echo "$response" | jq -r '[.[] | select(.primary == true)][0].email | split("@")[1]')
+            # メールアドレス本体は公開しない。ドメインと verified フラグのみ記録し、
+            # 生レスポンスはハッシュとして残す(後から同一性を示せる)。
+            response_hash=$(echo "$response" | shasum -a 256 | cut -d' ' -f1)
+          else
+            echo "::warning::EMAIL_CHECK_PAT が未登録か無効(期限切れ)です。メール認証状態の記録をスキップしました。PAT を再発行して Secrets を更新してください。"
+          fi
 
           # 中央リポジトリの名簿に自分がいれば通し番号をバッジに表示する
           my_number=$(curl -fsSL "https://raw.githubusercontent.com/${CENTRAL_REPO}/main/registry.json" \
